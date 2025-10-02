@@ -49,6 +49,7 @@ npx automatically downloads and runs the server.
 
 ### Cariot Tools
 
+- **analyze_alcohol_checks**: Analyze alcohol check results from daily reports to monitor compliance and identify violations.
 - **get_daily_report**: Get a specific daily report by daily report number.
 - **get_daily_reports**: List daily reports.
 - **get_drivers**: List drivers.
