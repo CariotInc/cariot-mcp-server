@@ -37,12 +37,17 @@ interface AlcoholCheckAnalysis {
   };
   has_violation: boolean;
   check_status: 'complete' | 'incomplete' | 'none';
+  is_implemented: boolean;
+  has_driving: boolean;
 }
 
 interface AnalysisSummary {
   total_reports: number;
   reports_with_checks: number;
   reports_without_checks: number;
+  reports_with_driving: number;
+  reports_implemented: number;
+  implementation_rate: string;
   total_violations: number;
   violation_rate: string;
   checks: AlcoholCheckAnalysis[];
@@ -68,6 +73,10 @@ const handler = (authProvider: CariotApiAuthProvider): ToolHandler => {
       }
 
       // Analyze alcohol checks
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
+
       const checks: AlcoholCheckAnalysis[] = reports.map((report) => {
         const alcoholChecks = report.alcohol_checks;
         
@@ -103,6 +112,30 @@ const handler = (authProvider: CariotApiAuthProvider): ToolHandler => {
           checkStatus = beforeCheck && afterCheck ? 'complete' : 'incomplete';
         }
 
+        // Determine if there was driving activity
+        const hasDriving = report.distance > 0 || report.duration > 0;
+
+        // Determine if checks are properly implemented
+        // Implementation definition:
+        // - When driving, both before-ride and after-ride checks should be performed
+        // - For past dates: If driving occurred and either before or after check is missing, it's not implemented
+        // - For current date: If driving occurred and before check is missing, it's not implemented
+        //   (we can't determine if after check is missing because driver might still be driving)
+        let isImplemented = false;
+        if (hasDriving) {
+          const isToday = report.date === todayStr;
+          if (isToday) {
+            // For today, only require before check
+            isImplemented = !!beforeCheck;
+          } else {
+            // For past dates, require both before and after checks
+            isImplemented = !!(beforeCheck && afterCheck);
+          }
+        } else {
+          // No driving, so implementation check doesn't apply
+          isImplemented = true;
+        }
+
         return {
           driver_id: report.driver_id,
           driver_name: report.driver_name,
@@ -113,16 +146,26 @@ const handler = (authProvider: CariotApiAuthProvider): ToolHandler => {
           after_check: afterCheck,
           has_violation: hasViolation,
           check_status: checkStatus,
+          is_implemented: isImplemented,
+          has_driving: hasDriving,
         };
       });
 
       const reportsWithChecks = checks.filter((c) => c.check_status !== 'none').length;
+      const reportsWithDriving = checks.filter((c) => c.has_driving).length;
+      const reportsImplemented = checks.filter((c) => c.is_implemented && c.has_driving).length;
       const totalViolations = checks.filter((c) => c.has_violation).length;
 
       const summary: AnalysisSummary = {
         total_reports: reports.length,
         reports_with_checks: reportsWithChecks,
         reports_without_checks: reports.length - reportsWithChecks,
+        reports_with_driving: reportsWithDriving,
+        reports_implemented: reportsImplemented,
+        implementation_rate:
+          reportsWithDriving > 0
+            ? `${((reportsImplemented / reportsWithDriving) * 100).toFixed(1)}%`
+            : 'N/A',
         total_violations: totalViolations,
         violation_rate:
           reportsWithChecks > 0
@@ -144,9 +187,9 @@ export const analyzeAlcoholChecksTool = {
     titleEn: 'Analyze Alcohol Checks',
     titleJa: 'アルコールチェック分析',
     descriptionEn:
-      'Analyzes alcohol check results from daily reports. Shows check status (before/middle/after), violations, and compliance statistics for drivers within a specified date range.',
+      'Analyzes alcohol check results from daily reports. Shows check status (before/middle/after), violations, implementation rate, and compliance statistics for drivers within a specified date range. Implementation rate is calculated based on whether both before and after checks are performed when driving (for past dates) or at least before check is performed (for current date).',
     descriptionJa:
-      '日報からアルコールチェック結果を分析します。指定された日付範囲内のドライバーのチェック状況（前/中/後）、違反、およびコンプライアンス統計を表示します。',
+      '日報からアルコールチェック結果を分析します。指定された日付範囲内のドライバーのチェック状況（前/中/後）、違反、実施率、およびコンプライアンス統計を表示します。実施率は、運転時に乗車前と乗車後の両方のチェックが実施されているか（前日以前）、または少なくとも乗車前チェックが実施されているか（当日）に基づいて計算されます。',
     inputSchema: {
       driverName: z
         .string()
