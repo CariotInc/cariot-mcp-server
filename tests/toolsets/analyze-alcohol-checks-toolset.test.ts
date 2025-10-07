@@ -508,6 +508,121 @@ describe('AnalyzeAlcoholChecksToolset', () => {
       expect(result.content[0].text).toBe('API call successful but no daily reports found.');
     });
 
+    it('should calculate violation rate based on checked reports only', async () => {
+      const mockResponse = {
+        items: [
+          {
+            daily_report_no: 'DR001',
+            driver_id: 'D001',
+            driver_name: 'Test Driver',
+            department: 'Dept A',
+            business_office: 'Office A',
+            date: '2024-01-01',
+            distance: 100,
+            duration: 3600,
+            vehicles: 'V001',
+            start_address: 'Start Address',
+            started_at: 1704067200,
+            end_address: 'End Address',
+            ended_at: 1704124800,
+            alcohol_checks: {
+              before_check_datetime: 1704067100,
+              before_check_on_alcohol: true, // Violation
+              after_check_datetime: 1704124900,
+              after_check_on_alcohol: false,
+            },
+          },
+          {
+            daily_report_no: 'DR002',
+            driver_id: 'D002',
+            driver_name: 'Test Driver 2',
+            department: 'Dept B',
+            business_office: 'Office B',
+            date: '2024-01-02',
+            distance: 150,
+            duration: 7200,
+            vehicles: 'V002',
+            start_address: 'Start Address 2',
+            started_at: 1704153600,
+            end_address: 'End Address 2',
+            ended_at: 1704211200,
+            alcohol_checks: {
+              before_check_datetime: 1704153500,
+              before_check_on_alcohol: false, // No violation
+              after_check_datetime: 1704211300,
+              after_check_on_alcohol: false,
+            },
+          },
+          {
+            daily_report_no: 'DR003',
+            driver_id: 'D003',
+            driver_name: 'Test Driver 3',
+            department: 'Dept C',
+            business_office: 'Office C',
+            date: '2024-01-03',
+            distance: 200,
+            duration: 5400,
+            vehicles: 'V003',
+            start_address: 'Start Address 3',
+            started_at: 1704240000,
+            end_address: 'End Address 3',
+            ended_at: 1704297600,
+            // No alcohol checks - not checked
+          },
+        ],
+      };
+
+      vi.mocked(getDailyReports).mockResolvedValue(mockResponse);
+
+      const result = await registration.handler({});
+
+      const text = (result.content[0] as { text: string }).text;
+      const parsed = JSON.parse(text);
+
+      // 3 reports total, 3 driven, 2 checked, 1 violation
+      expect(parsed.total_reports).toBe(3);
+      expect(parsed.checked_reports).toBe(2);
+      expect(parsed.total_violations).toBe(1);
+      // Violation rate should be 1/2 = 50% (based on checked reports, not driven reports)
+      expect(parsed.violation_rate).toBe('50%');
+      // Check rate should be 2/3 = 66.67% → rounded to 67% (checked/driven)
+      expect(parsed.check_rate).toBe('67%');
+    });
+
+    it('should return N/A for violation rate when no reports are checked', async () => {
+      const mockResponse = {
+        items: [
+          {
+            daily_report_no: 'DR001',
+            driver_id: 'D001',
+            driver_name: 'Test Driver',
+            department: 'Dept A',
+            business_office: 'Office A',
+            date: '2024-01-01',
+            distance: 100,
+            duration: 3600,
+            vehicles: 'V001',
+            start_address: 'Start Address',
+            started_at: 1704067200,
+            end_address: 'End Address',
+            ended_at: 1704124800,
+            // No alcohol checks
+          },
+        ],
+      };
+
+      vi.mocked(getDailyReports).mockResolvedValue(mockResponse);
+
+      const result = await registration.handler({});
+
+      const text = (result.content[0] as { text: string }).text;
+      const parsed = JSON.parse(text);
+
+      expect(parsed.checked_reports).toBe(0);
+      expect(parsed.total_violations).toBe(0);
+      expect(parsed.violation_rate).toBe('N/A');
+    });
+
     it('should return error response on API failure', async () => {
       const error = new Error('API Error');
       vi.mocked(getDailyReports).mockRejectedValue(error);

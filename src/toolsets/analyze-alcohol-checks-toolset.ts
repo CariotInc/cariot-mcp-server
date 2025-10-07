@@ -186,7 +186,7 @@ const createAnalysisSummary = (
     checked_reports: checkedReports,
     check_rate: calculatePercentage(checkedReports, drivenReports),
     total_violations: totalViolations,
-    violation_rate: calculatePercentage(totalViolations, drivenReports),
+    violation_rate: calculatePercentage(totalViolations, checkedReports),
     checks,
   };
 };
