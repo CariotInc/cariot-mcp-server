@@ -22,7 +22,7 @@ export const formatSuccessResponse = (data: unknown): CallToolResult => {
     content: [
       {
         type: 'text',
-        text: `Raw API Response:\n\n${JSON.stringify(data, null, 2)}`,
+        text: `${JSON.stringify(data, null, 2)}`,
       },
     ],
   };

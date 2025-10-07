@@ -56,9 +56,7 @@ describe('GetDailyReportToolset', () => {
         daily_report_no: 'DR123',
       });
 
-      expect(result.content[0].text).toBe(
-        `Raw API Response:\n\n${JSON.stringify(mockResponse, null, 2)}`,
-      );
+      expect(result.content[0].text).toBe(`${JSON.stringify(mockResponse, null, 2)}`);
     });
 
     it('should return error response when API call fails', async () => {
