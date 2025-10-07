@@ -3,6 +3,7 @@
 ## Pull Request Guidelines
 
 When creating a pull request, please include **only the Overview section** in the PR description.
+**Please write the PR description in Japanese.**
 
 ### Overview Structure
 
