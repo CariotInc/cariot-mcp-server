@@ -5,6 +5,15 @@ export interface DailyReportsQuery {
   limit?: number;
 }
 
+export interface AlcoholCheckSummary {
+  before_check_datetime?: number;
+  before_check_on_alcohol?: boolean;
+  middle_check_datetime?: number;
+  middle_check_on_alcohol?: boolean;
+  after_check_datetime?: number;
+  after_check_on_alcohol?: boolean;
+}
+
 export interface DailyReport {
   daily_report_no: string;
   driver_id: string;
@@ -19,6 +28,7 @@ export interface DailyReport {
   started_at: number;
   end_address: string;
   ended_at: number;
+  alcohol_checks?: AlcoholCheckSummary;
 }
 
 export interface GetDailyReportsListResponse {

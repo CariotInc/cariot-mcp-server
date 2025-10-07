@@ -109,6 +109,38 @@ export interface AccelEvent {
   media_file_id: string;
 }
 
+export interface AlcoholCheck {
+  created_at: number;
+  created_by_sfid: string;
+  created_by_name: string;
+  type: string;
+  vehicle_sfid: string;
+  vehicle_name: string;
+  checked_at_date: string;
+  checked_at: number;
+  driver_sfid: string;
+  driver_name: string;
+  checker_sfid: string;
+  checker_name: string;
+  alcohol_detector_sfid: string;
+  alcohol_detector_name: string;
+  check_method: string;
+  check_method_detail: string;
+  on_alcohol: boolean;
+  alcohol_value: number;
+  image1_key: string;
+  image2_key: string;
+  image1_url: string;
+  image2_url: string;
+  instructions: string;
+  other_notice: string;
+  modified_at: number;
+  modified_by_sfid: string;
+  modified_by_name: string;
+  deleted: boolean;
+  ble_selected: boolean;
+}
+
 export interface GetDailyReportResponse {
   date: string;
   clocked_in_at: number;
@@ -119,4 +151,5 @@ export interface GetDailyReportResponse {
   fields: Field[];
   rides: Ride[];
   accel_events: AccelEvent[];
+  alcohol_checks?: AlcoholCheck[];
 }

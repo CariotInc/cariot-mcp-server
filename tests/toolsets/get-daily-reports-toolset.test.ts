@@ -66,9 +66,7 @@ describe('GetDailyReportsToolset', () => {
         limit: 10,
       });
 
-      expect(result.content[0].text).toBe(
-        `Raw API Response:\n\n${JSON.stringify(mockResponse, null, 2)}`,
-      );
+      expect(result.content[0].text).toBe(JSON.stringify(mockResponse, null, 2));
     });
 
     it('should return empty response when no reports found', async () => {

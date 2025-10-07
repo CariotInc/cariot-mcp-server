@@ -60,9 +60,7 @@ describe('GetRealtimeToolset', () => {
       const result = await registration.handler({ deviceUids: 'dev-001' });
 
       expect(getDeviceSnapshots).toHaveBeenCalledWith(mockClient, { device_uid: 'dev-001' });
-      expect(result.content[0].text).toBe(
-        `Raw API Response:\n\n${JSON.stringify(mockResponse, null, 2)}`,
-      );
+      expect(result.content[0].text).toBe(JSON.stringify(mockResponse, null, 2));
     });
 
     it('should return empty response when no realtime data found', async () => {
