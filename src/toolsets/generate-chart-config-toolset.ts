@@ -109,9 +109,9 @@ export const generateChartConfigTool = {
     titleEn: 'Generate Chart.js Configuration',
     titleJa: 'Chart.js設定データ生成',
     descriptionEn:
-      'Generates Chart.js configuration data based on input data. Supports bar, line, pie, doughnut, radar, and polarArea chart types. Returns a ChartConfiguration object that can be used directly with Chart.js.',
+      'Generates Chart.js configuration data based on input data. Supports bar, line, pie, doughnut, radar, and polarArea chart types. Returns a ChartConfiguration object that can be used directly with Chart.js. IMPORTANT: When using this tool, you MUST embed the generated object in your final response so that the client can use the data.',
     descriptionJa:
-      '入力データに基づいてChart.js設定データを生成します。bar、line、pie、doughnut、radar、polarAreaのグラフタイプをサポートします。Chart.jsで直接使用できるChartConfigurationオブジェクトを返します。',
+      '入力データに基づいてChart.js設定データを生成します。bar、line、pie、doughnut、radar、polarAreaのグラフタイプをサポートします。Chart.jsで直接使用できるChartConfigurationオブジェクトを返します。重要: このツールを使用する場合は、必ず最終的なレスポンスの中に生成されたオブジェクトを埋め込んでください。クライアントでそのデータを使用するためです。',
     inputSchema: {
       chartType: z
         .enum(['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea'])
