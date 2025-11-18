@@ -31,9 +31,15 @@ const handler = (_authProvider: CariotApiAuthProvider): ToolHandler => {
   return async (params: unknown): Promise<CallToolResult> => {
     try {
       const typedParams = params as ChartDataInput;
-      
-      // Validate chart type
-      const validChartTypes: SupportedChartType[] = ['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea'];
+
+      const validChartTypes: SupportedChartType[] = [
+        'bar',
+        'line',
+        'pie',
+        'doughnut',
+        'radar',
+        'polarArea',
+      ];
       if (!validChartTypes.includes(typedParams.chartType)) {
         throw new Error(`Invalid chart type. Supported types: ${validChartTypes.join(', ')}`);
       }
@@ -45,12 +51,26 @@ const handler = (_authProvider: CariotApiAuthProvider): ToolHandler => {
         }
       }
 
+      const sortedIndices = typedParams.labels
+        .map((_, index) => index)
+        .sort((a, b) => {
+          const maxA = Math.max(...typedParams.datasets.map((d) => d.data[a]));
+          const maxB = Math.max(...typedParams.datasets.map((d) => d.data[b]));
+          return maxB - maxA;
+        });
+
+      const sortedLabels = sortedIndices.map((i) => typedParams.labels[i]);
+      const sortedDatasets = typedParams.datasets.map((dataset) => ({
+        ...dataset,
+        data: sortedIndices.map((i) => dataset.data[i]),
+      }));
+
       // Generate Chart.js configuration
       const chartData: ChartConfiguration<SupportedChartType> = {
         type: typedParams.chartType,
         data: {
-          labels: typedParams.labels,
-          datasets: typedParams.datasets.map((dataset) => ({
+          labels: sortedLabels,
+          datasets: sortedDatasets.map((dataset) => ({
             label: dataset.label || '',
             data: dataset.data,
             backgroundColor: dataset.backgroundColor,
@@ -109,9 +129,9 @@ export const generateChartConfigTool = {
     titleEn: 'Generate Chart.js Configuration',
     titleJa: 'Chart.js設定データ生成',
     descriptionEn:
-      'Generates Chart.js configuration data based on input data. Supports bar, line, pie, doughnut, radar, and polarArea chart types. Returns a ChartConfiguration object that can be used directly with Chart.js. IMPORTANT: When using this tool, you MUST embed the generated object in your final response so that the client can use the data.',
+      'Generates Chart.js configuration data based on input data. Supports bar, line, pie, doughnut, radar, and polarArea chart types. Returns a ChartConfiguration object that can be used directly with Chart.js. IMPORTANT: When using this tool, you MUST embed the EXACT generated ChartConfiguration object in your final response WITHOUT any code block markers (no ```json, ```javascript, or any other formatting). Output the raw JSON object directly so the client can parse and use it.',
     descriptionJa:
-      '入力データに基づいてChart.js設定データを生成します。bar、line、pie、doughnut、radar、polarAreaのグラフタイプをサポートします。Chart.jsで直接使用できるChartConfigurationオブジェクトを返します。重要: このツールを使用する場合は、必ず最終的なレスポンスの中に生成されたオブジェクトを埋め込んでください。クライアントでそのデータを使用するためです。',
+      '入力データに基づいてChart.js設定データを生成します。bar、line、pie、doughnut、radar、polarAreaのグラフタイプをサポートします。Chart.jsで直接使用できるChartConfigurationオブジェクトを返します。重要：このツールを使用した場合、生成されたChartConfigurationオブジェクトを、コードブロックマーカー（```json、```javascript等）を一切付けずに、そのまま生のJSONオブジェクトとして返答の末尾に含めてください。クライアントがパースして使用できるようにしてください。',
     inputSchema: {
       chartType: z
         .enum(['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea'])
@@ -145,19 +165,20 @@ export const generateChartConfigTool = {
             borderColor: z
               .union([z.string(), z.array(z.string())])
               .optional()
-              .describe(formatEnJaWithSlash('Border color(s) for the dataset', 'データセットの枠線色')),
+              .describe(
+                formatEnJaWithSlash('Border color(s) for the dataset', 'データセットの枠線色'),
+              ),
             borderWidth: z
               .number()
               .optional()
-              .describe(formatEnJaWithSlash('Border width for the dataset', 'データセットの枠線幅')),
+              .describe(
+                formatEnJaWithSlash('Border width for the dataset', 'データセットの枠線幅'),
+              ),
           }),
         )
         .min(1)
         .describe(formatEnJaWithSlash('Array of datasets', 'データセット配列')),
-      title: z
-        .string()
-        .optional()
-        .describe(formatEnJaWithSlash('Chart title', 'グラフのタイトル')),
+      title: z.string().optional().describe(formatEnJaWithSlash('Chart title', 'グラフのタイトル')),
       xAxisLabel: z
         .string()
         .optional()

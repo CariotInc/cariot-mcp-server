@@ -46,12 +46,12 @@ describe('GenerateChartConfigToolset', () => {
       };
 
       const result = await registration.handler(params);
-      const responseData = JSON.parse(result.content[0].text);
+      const responseData = JSON.parse(result.content[0].text as string);
 
       expect(responseData.chartData.type).toBe('bar');
-      expect(responseData.chartData.data.labels).toEqual(['January', 'February', 'March']);
+      expect(responseData.chartData.data.labels).toEqual(['February', 'March', 'January']);
       expect(responseData.chartData.data.datasets).toHaveLength(1);
-      expect(responseData.chartData.data.datasets[0].data).toEqual([100, 200, 150]);
+      expect(responseData.chartData.data.datasets[0].data).toEqual([200, 150, 100]);
       expect(responseData.chartData.options?.plugins?.title?.text).toBe('Monthly Sales');
       expect(responseData.chartData.options?.scales?.x?.title?.text).toBe('Month');
       expect(responseData.chartData.options?.scales?.y?.title?.text).toBe('Sales Amount');
@@ -70,11 +70,11 @@ describe('GenerateChartConfigToolset', () => {
       };
 
       const result = await registration.handler(params);
-      const responseData = JSON.parse(result.content[0].text);
+      const responseData = JSON.parse(result.content[0].text as string);
 
       expect(responseData.chartData.type).toBe('line');
-      expect(responseData.chartData.data.labels).toEqual(['Q1', 'Q2', 'Q3', 'Q4']);
-      expect(responseData.chartData.data.datasets[0].data).toEqual([1000, 1200, 1100, 1300]);
+      expect(responseData.chartData.data.labels).toEqual(['Q4', 'Q2', 'Q3', 'Q1']);
+      expect(responseData.chartData.data.datasets[0].data).toEqual([1300, 1200, 1100, 1000]);
     });
 
     it('should generate valid pie chart configuration', async () => {
@@ -91,11 +91,11 @@ describe('GenerateChartConfigToolset', () => {
       };
 
       const result = await registration.handler(params);
-      const responseData = JSON.parse(result.content[0].text);
+      const responseData = JSON.parse(result.content[0].text as string);
 
       expect(responseData.chartData.type).toBe('pie');
-      expect(responseData.chartData.data.labels).toEqual(['Red', 'Blue', 'Yellow']);
-      expect(responseData.chartData.data.datasets[0].data).toEqual([300, 50, 100]);
+      expect(responseData.chartData.data.labels).toEqual(['Red', 'Yellow', 'Blue']);
+      expect(responseData.chartData.data.datasets[0].data).toEqual([300, 100, 50]);
       expect(responseData.chartData.options?.plugins?.title?.text).toBe('Color Distribution');
       expect(responseData.chartData.options?.scales).toBeUndefined();
     });
@@ -113,10 +113,10 @@ describe('GenerateChartConfigToolset', () => {
       };
 
       const result = await registration.handler(params);
-      const responseData = JSON.parse(result.content[0].text);
+      const responseData = JSON.parse(result.content[0].text as string);
 
       expect(responseData.chartData.type).toBe('doughnut');
-      expect(responseData.chartData.data.labels).toEqual(['A', 'B', 'C']);
+      expect(responseData.chartData.data.labels).toEqual(['B', 'A', 'C']);
     });
 
     it('should generate valid radar chart configuration', async () => {
@@ -133,10 +133,15 @@ describe('GenerateChartConfigToolset', () => {
       };
 
       const result = await registration.handler(params);
-      const responseData = JSON.parse(result.content[0].text);
+      const responseData = JSON.parse(result.content[0].text as string);
 
       expect(responseData.chartData.type).toBe('radar');
-      expect(responseData.chartData.data.labels).toEqual(['Speed', 'Reliability', 'Comfort', 'Safety']);
+      expect(responseData.chartData.data.labels).toEqual([
+        'Speed',
+        'Safety',
+        'Comfort',
+        'Reliability',
+      ]);
       expect(responseData.chartData.options?.scales).toBeDefined();
     });
 
@@ -153,10 +158,14 @@ describe('GenerateChartConfigToolset', () => {
       };
 
       const result = await registration.handler(params);
-      const responseData = JSON.parse(result.content[0].text);
+      const responseData = JSON.parse(result.content[0].text as string);
 
       expect(responseData.chartData.type).toBe('polarArea');
-      expect(responseData.chartData.data.labels).toEqual(['Category 1', 'Category 2', 'Category 3']);
+      expect(responseData.chartData.data.labels).toEqual([
+        'Category 2',
+        'Category 1',
+        'Category 3',
+      ]);
     });
 
     it('should handle multiple datasets', async () => {
@@ -179,7 +188,7 @@ describe('GenerateChartConfigToolset', () => {
       };
 
       const result = await registration.handler(params);
-      const responseData = JSON.parse(result.content[0].text);
+      const responseData = JSON.parse(result.content[0].text as string);
 
       expect(responseData.chartData.data.datasets).toHaveLength(2);
       expect(responseData.chartData.data.datasets[0].label).toBe('Product A');
@@ -229,7 +238,7 @@ describe('GenerateChartConfigToolset', () => {
       };
 
       const result = await registration.handler(params);
-      const responseData = JSON.parse(result.content[0].text);
+      const responseData = JSON.parse(result.content[0].text as string);
 
       expect(responseData.chartData.type).toBe('line');
       expect(responseData.chartData.data.datasets[0].label).toBe('');
