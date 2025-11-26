@@ -1,11 +1,6 @@
-export type AuthType = 'access_token' | 'api_key';
-
-export interface Environment {
-  authType: AuthType;
-  accessToken?: string;
-  apiAccessKey?: string;
-  apiAccessSecret?: string;
-}
+export type Environment =
+  | { authType: 'access_token'; accessToken: string }
+  | { authType: 'api_key'; apiAccessKey: string; apiAccessSecret: string };
 
 export function getEnvironment(): Environment {
   const accessToken = process.env.ACCESS_TOKEN;

@@ -126,7 +126,7 @@ export class CariotApiAuthProvider {
       logger.info('Using ACCESS_TOKEN authentication');
       return new CariotApiAuthProvider({
         type: 'access_token',
-        accessToken: env.accessToken!,
+        accessToken: env.accessToken,
         loginUrl: `${API_BASE}/login/cariot`,
       });
     } else {
@@ -134,8 +134,8 @@ export class CariotApiAuthProvider {
       return new CariotApiAuthProvider({
         type: 'api_key',
         credentials: {
-          api_access_key: env.apiAccessKey!,
-          api_access_secret: env.apiAccessSecret!,
+          api_access_key: env.apiAccessKey,
+          api_access_secret: env.apiAccessSecret,
         },
         loginUrl: `${API_BASE}/login`,
       });
