@@ -3,22 +3,22 @@ export type Environment =
   | { authType: 'api_key'; apiAccessKey: string; apiAccessSecret: string };
 
 export function getEnvironment(): Environment {
-  const accessToken = process.env.ACCESS_TOKEN;
   const apiAccessKey = process.env.API_ACCESS_KEY;
   const apiAccessSecret = process.env.API_ACCESS_SECRET;
-
-  if (accessToken) {
-    return {
-      authType: 'access_token',
-      accessToken,
-    };
-  }
+  const accessToken = process.env.ACCESS_TOKEN;
 
   if (apiAccessKey && apiAccessSecret) {
     return {
       authType: 'api_key',
       apiAccessKey,
       apiAccessSecret,
+    };
+  }
+
+  if (accessToken) {
+    return {
+      authType: 'access_token',
+      accessToken,
     };
   }
 

@@ -122,23 +122,24 @@ export class CariotApiAuthProvider {
   static createCariotAuthProvider(): CariotApiAuthProvider {
     const env = getEnvironment();
 
-    if (env.authType === 'access_token') {
-      logger.info('Using ACCESS_TOKEN authentication');
-      return new CariotApiAuthProvider({
-        type: 'access_token',
-        accessToken: env.accessToken,
-        loginUrl: `${API_BASE}/login/cariot`,
-      });
-    } else {
-      logger.info('Using API key authentication');
-      return new CariotApiAuthProvider({
-        type: 'api_key',
-        credentials: {
-          api_access_key: env.apiAccessKey,
-          api_access_secret: env.apiAccessSecret,
-        },
-        loginUrl: `${API_BASE}/login`,
-      });
+    switch (env.authType) {
+      case 'api_key':
+        logger.info('Using API key authentication');
+        return new CariotApiAuthProvider({
+          type: 'api_key',
+          credentials: {
+            api_access_key: env.apiAccessKey,
+            api_access_secret: env.apiAccessSecret,
+          },
+          loginUrl: `${API_BASE}/login`,
+        });
+      case 'access_token':
+        logger.info('Using ACCESS_TOKEN authentication');
+        return new CariotApiAuthProvider({
+          type: 'access_token',
+          accessToken: env.accessToken,
+          loginUrl: `${API_BASE}/login/cariot`,
+        });
     }
   }
 
