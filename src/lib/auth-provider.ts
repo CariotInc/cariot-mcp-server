@@ -11,7 +11,7 @@ import { logger } from './logger.js';
 import { ApiAuthResponse, ApiCredentials } from './types.js';
 
 type AuthConfig =
-  | { type: 'access_token'; accessToken: string; loginUrl: string }
+  | { type: 'id_token'; idToken: string; loginUrl: string }
   | { type: 'api_key'; credentials: ApiCredentials; loginUrl: string };
 
 export class CariotApiAuthProvider {
@@ -85,15 +85,15 @@ export class CariotApiAuthProvider {
 
       let response: AxiosResponse<ApiAuthResponse>;
 
-      if (this.authConfig.type === 'access_token') {
-        // Use ACCESS_TOKEN with /api/login/cariot endpoint
+      if (this.authConfig.type === 'id_token') {
+        // Use id token with /api/login/cariot endpoint
         response = await axios.post(
           this.authConfig.loginUrl,
           {},
           {
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.authConfig.accessToken}`,
+              Authorization: `Bearer ${this.authConfig.idToken}`,
             },
             timeout: 15000,
           },
@@ -133,11 +133,11 @@ export class CariotApiAuthProvider {
           },
           loginUrl: `${API_BASE}/login`,
         });
-      case 'access_token':
-        logger.info('Using ACCESS_TOKEN authentication');
+      case 'id_token':
+        logger.info('Using ID_TOKEN authentication');
         return new CariotApiAuthProvider({
-          type: 'access_token',
-          accessToken: env.accessToken,
+          type: 'id_token',
+          idToken: env.idToken,
           loginUrl: `${API_BASE}/login/cariot`,
         });
     }

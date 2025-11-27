@@ -20,9 +20,9 @@ describe('CariotApiAuthProvider', () => {
     credentials,
     loginUrl,
   };
-  const accessTokenAuthConfig = {
-    type: 'access_token' as const,
-    accessToken: 'my-jwt-token',
+  const idTokenAuthConfig = {
+    type: 'id_token' as const,
+    idToken: 'my-jwt-token',
     loginUrl: 'https://example.com/login/cariot',
   };
 
@@ -82,18 +82,18 @@ describe('CariotApiAuthProvider', () => {
     expect(axios.post).not.toHaveBeenCalled();
   });
 
-  it('fetches token when none exists and caches it (access_token)', async () => {
-    const provider = new CariotApiAuthProvider(accessTokenAuthConfig);
+  it('fetches token when none exists and caches it (id_token)', async () => {
+    const provider = new CariotApiAuthProvider(idTokenAuthConfig);
     const token1 = await provider.getValidToken();
     expect(token1).toBe('token-1');
     expect(axios.post).toHaveBeenCalledTimes(1);
     expect(axios.post).toHaveBeenCalledWith(
-      accessTokenAuthConfig.loginUrl,
+      idTokenAuthConfig.loginUrl,
       {},
       expect.objectContaining({
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessTokenAuthConfig.accessToken}`,
+          Authorization: `Bearer ${idTokenAuthConfig.idToken}`,
         },
         timeout: 15000,
       }),
@@ -231,8 +231,8 @@ describe('CariotApiAuthProvider', () => {
   it('createCariotAuthProvider constructs with env credentials (api_key)', () => {
     const prevKey = process.env.API_ACCESS_KEY;
     const prevSecret = process.env.API_ACCESS_SECRET;
-    const prevToken = process.env.ACCESS_TOKEN;
-    delete process.env.ACCESS_TOKEN;
+    const prevToken = process.env.ID_TOKEN;
+    delete process.env.ID_TOKEN;
     process.env.API_ACCESS_KEY = 'ek';
     process.env.API_ACCESS_SECRET = 'es';
     try {
@@ -243,18 +243,18 @@ describe('CariotApiAuthProvider', () => {
       else process.env.API_ACCESS_KEY = prevKey;
       if (prevSecret === undefined) delete process.env.API_ACCESS_SECRET;
       else process.env.API_ACCESS_SECRET = prevSecret;
-      if (prevToken === undefined) delete process.env.ACCESS_TOKEN;
-      else process.env.ACCESS_TOKEN = prevToken;
+      if (prevToken === undefined) delete process.env.ID_TOKEN;
+      else process.env.ID_TOKEN = prevToken;
     }
   });
 
-  it('createCariotAuthProvider constructs with ACCESS_TOKEN (access_token)', () => {
+  it('createCariotAuthProvider constructs with ID_TOKEN (id_token)', () => {
     const prevKey = process.env.API_ACCESS_KEY;
     const prevSecret = process.env.API_ACCESS_SECRET;
-    const prevToken = process.env.ACCESS_TOKEN;
+    const prevToken = process.env.ID_TOKEN;
     delete process.env.API_ACCESS_KEY;
     delete process.env.API_ACCESS_SECRET;
-    process.env.ACCESS_TOKEN = 'my-jwt';
+    process.env.ID_TOKEN = 'my-jwt';
     try {
       const provider = CariotApiAuthProvider.createCariotAuthProvider();
       expect(provider).toBeInstanceOf(CariotApiAuthProvider);
@@ -263,18 +263,18 @@ describe('CariotApiAuthProvider', () => {
       else process.env.API_ACCESS_KEY = prevKey;
       if (prevSecret === undefined) delete process.env.API_ACCESS_SECRET;
       else process.env.API_ACCESS_SECRET = prevSecret;
-      if (prevToken === undefined) delete process.env.ACCESS_TOKEN;
-      else process.env.ACCESS_TOKEN = prevToken;
+      if (prevToken === undefined) delete process.env.ID_TOKEN;
+      else process.env.ID_TOKEN = prevToken;
     }
   });
 
-  it('createCariotAuthProvider prioritizes api_key over ACCESS_TOKEN', () => {
+  it('createCariotAuthProvider prioritizes api_key over ID_TOKEN', () => {
     const prevKey = process.env.API_ACCESS_KEY;
     const prevSecret = process.env.API_ACCESS_SECRET;
-    const prevToken = process.env.ACCESS_TOKEN;
+    const prevToken = process.env.ID_TOKEN;
     process.env.API_ACCESS_KEY = 'ek';
     process.env.API_ACCESS_SECRET = 'es';
-    process.env.ACCESS_TOKEN = 'my-jwt';
+    process.env.ID_TOKEN = 'my-jwt';
     try {
       const provider = CariotApiAuthProvider.createCariotAuthProvider();
       expect(provider).toBeInstanceOf(CariotApiAuthProvider);
@@ -284,18 +284,18 @@ describe('CariotApiAuthProvider', () => {
       else process.env.API_ACCESS_KEY = prevKey;
       if (prevSecret === undefined) delete process.env.API_ACCESS_SECRET;
       else process.env.API_ACCESS_SECRET = prevSecret;
-      if (prevToken === undefined) delete process.env.ACCESS_TOKEN;
-      else process.env.ACCESS_TOKEN = prevToken;
+      if (prevToken === undefined) delete process.env.ID_TOKEN;
+      else process.env.ID_TOKEN = prevToken;
     }
   });
 
   it('createCariotAuthProvider throws when no credentials provided', () => {
     const prevKey = process.env.API_ACCESS_KEY;
     const prevSecret = process.env.API_ACCESS_SECRET;
-    const prevToken = process.env.ACCESS_TOKEN;
+    const prevToken = process.env.ID_TOKEN;
     delete process.env.API_ACCESS_KEY;
     delete process.env.API_ACCESS_SECRET;
-    delete process.env.ACCESS_TOKEN;
+    delete process.env.ID_TOKEN;
     try {
       expect(() => CariotApiAuthProvider.createCariotAuthProvider()).toThrow(
         'Authentication credentials are required',
@@ -305,8 +305,8 @@ describe('CariotApiAuthProvider', () => {
       else process.env.API_ACCESS_KEY = prevKey;
       if (prevSecret === undefined) delete process.env.API_ACCESS_SECRET;
       else process.env.API_ACCESS_SECRET = prevSecret;
-      if (prevToken === undefined) delete process.env.ACCESS_TOKEN;
-      else process.env.ACCESS_TOKEN = prevToken;
+      if (prevToken === undefined) delete process.env.ID_TOKEN;
+      else process.env.ID_TOKEN = prevToken;
     }
   });
 });
