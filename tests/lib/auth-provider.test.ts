@@ -268,7 +268,7 @@ describe('CariotApiAuthProvider', () => {
     }
   });
 
-  it('createCariotAuthProvider prioritizes ACCESS_TOKEN over api_key', () => {
+  it('createCariotAuthProvider prioritizes api_key over ACCESS_TOKEN', () => {
     const prevKey = process.env.API_ACCESS_KEY;
     const prevSecret = process.env.API_ACCESS_SECRET;
     const prevToken = process.env.ACCESS_TOKEN;
@@ -278,7 +278,7 @@ describe('CariotApiAuthProvider', () => {
     try {
       const provider = CariotApiAuthProvider.createCariotAuthProvider();
       expect(provider).toBeInstanceOf(CariotApiAuthProvider);
-      expect(logger.info).toHaveBeenCalledWith('Using ACCESS_TOKEN authentication');
+      expect(logger.info).toHaveBeenCalledWith('Using API key authentication');
     } finally {
       if (prevKey === undefined) delete process.env.API_ACCESS_KEY;
       else process.env.API_ACCESS_KEY = prevKey;
