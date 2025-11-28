@@ -1,4 +1,5 @@
 export interface ApiAuthResponse {
+  timestamp: number;
   api_token: string;
 }
 

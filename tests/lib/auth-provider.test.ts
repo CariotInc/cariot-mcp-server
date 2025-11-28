@@ -15,6 +15,16 @@ vi.mock('../../src/lib/logger.js', () => ({
 describe('CariotApiAuthProvider', () => {
   const credentials = { api_access_key: 'key', api_access_secret: 'secret' } as const;
   const loginUrl = 'https://example.com/login';
+  const apiKeyAuthConfig = {
+    type: 'api_key' as const,
+    credentials,
+    loginUrl,
+  };
+  const idTokenAuthConfig = {
+    type: 'id_token' as const,
+    idToken: 'my-jwt-token',
+    loginUrl: 'https://example.com/login/cariot',
+  };
 
   interface InterceptableAxiosInstance extends AxiosInstance {
     __requestInterceptor?: (
@@ -55,8 +65,8 @@ describe('CariotApiAuthProvider', () => {
     vi.spyOn(axios, 'post').mockResolvedValue({ data: { api_token: 'token-1' } });
   });
 
-  it('refreshes token when none exists and caches it', async () => {
-    const provider = new CariotApiAuthProvider(credentials, loginUrl);
+  it('fetches token when none exists and caches it (api_key)', async () => {
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
     const token1 = await provider.getValidToken();
     expect(token1).toBe('token-1');
     expect(axios.post).toHaveBeenCalledTimes(1);
@@ -72,25 +82,31 @@ describe('CariotApiAuthProvider', () => {
     expect(axios.post).not.toHaveBeenCalled();
   });
 
-  it('re-authenticates after token expiry', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00Z'));
+  it('fetches token when none exists and caches it (id_token)', async () => {
+    const provider = new CariotApiAuthProvider(idTokenAuthConfig);
+    const token1 = await provider.getValidToken();
+    expect(token1).toBe('token-1');
+    expect(axios.post).toHaveBeenCalledTimes(1);
+    expect(axios.post).toHaveBeenCalledWith(
+      idTokenAuthConfig.loginUrl,
+      {},
+      expect.objectContaining({
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idTokenAuthConfig.idToken}`,
+        },
+        timeout: 15000,
+      }),
+    );
 
-    const provider = new CariotApiAuthProvider(credentials, loginUrl);
-
-    vi.mocked(axios.post).mockResolvedValueOnce({ data: { api_token: 'token-early' } });
-    const first = await provider.getValidToken();
-    expect(first).toBe('token-early');
-
-    vi.setSystemTime(new Date('2025-01-11T00:00:01Z'));
-    vi.mocked(axios.post).mockResolvedValueOnce({ data: { api_token: 'token-late' } });
-
-    const second = await provider.getValidToken();
-    expect(second).toBe('token-late');
+    vi.mocked(axios.post).mockClear();
+    const token2 = await provider.getValidToken();
+    expect(token2).toBe('token-1');
+    expect(axios.post).not.toHaveBeenCalled();
   });
 
   it('request interceptor sets x-auth-token and content-type', async () => {
-    const provider = new CariotApiAuthProvider(credentials, loginUrl);
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
 
     vi.mocked(axios.post).mockResolvedValueOnce({ data: { api_token: 'header-token' } });
 
@@ -107,7 +123,7 @@ describe('CariotApiAuthProvider', () => {
   });
 
   it('request interceptor preserves AxiosHeaders instance', async () => {
-    const provider = new CariotApiAuthProvider(credentials, loginUrl);
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
 
     vi.mocked(axios.post).mockResolvedValueOnce({ data: { api_token: 'hdr2' } });
 
@@ -122,7 +138,7 @@ describe('CariotApiAuthProvider', () => {
   });
 
   it('response interceptor retries once on 401 with fresh token', async () => {
-    const provider = new CariotApiAuthProvider(credentials, loginUrl);
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
 
     vi.mocked(axios.post).mockResolvedValueOnce({ data: { api_token: 'retry-token' } });
 
@@ -158,7 +174,7 @@ describe('CariotApiAuthProvider', () => {
   });
 
   it('response interceptor rejects on non-401 without retry', async () => {
-    new CariotApiAuthProvider(credentials, loginUrl);
+    new CariotApiAuthProvider(apiKeyAuthConfig);
     const errorHandler = mockClient.__responseErrorInterceptor!;
 
     const axiosLikeError = { response: { status: 500 }, message: 'Server error' } as const;
@@ -168,7 +184,7 @@ describe('CariotApiAuthProvider', () => {
   });
 
   it('response interceptor rejects when _retry already true', async () => {
-    new CariotApiAuthProvider(credentials, loginUrl);
+    new CariotApiAuthProvider(apiKeyAuthConfig);
     const errorHandler = mockClient.__responseErrorInterceptor!;
 
     const originalConfig: AxiosRequestConfig & { _retry?: boolean } = {
@@ -183,36 +199,40 @@ describe('CariotApiAuthProvider', () => {
     expect(mockClient.request).not.toHaveBeenCalled();
   });
 
-  it('refreshToken failure bubbles a unified error', async () => {
+  it('fetchToken failure bubbles a unified error', async () => {
     vi.mocked(axios.post).mockRejectedValueOnce(new Error('network down'));
-    const provider = new CariotApiAuthProvider(credentials, loginUrl);
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
     await expect(provider.getValidToken()).rejects.toThrow(
       'Failed to authenticate with external API',
     );
-    expect(logger.error).toHaveBeenLastCalledWith('Error refreshing token', {
+    expect(logger.error).toHaveBeenLastCalledWith('Error fetching token', {
       error: 'network down',
+      authType: 'api_key',
     });
   });
 
-  it('logs stringified non-Error when refreshToken fails with non-Error', async () => {
+  it('logs stringified non-Error when fetchToken fails with non-Error', async () => {
     vi.mocked(axios.post).mockRejectedValueOnce('string issue');
-    const provider = new CariotApiAuthProvider(credentials, loginUrl);
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
     await expect(provider.getValidToken()).rejects.toThrow(
       'Failed to authenticate with external API',
     );
-    expect(logger.error).toHaveBeenLastCalledWith('Error refreshing token', {
+    expect(logger.error).toHaveBeenLastCalledWith('Error fetching token', {
       error: 'string issue',
+      authType: 'api_key',
     });
   });
 
   it('getAuthedClient returns the created axios instance', () => {
-    const provider = new CariotApiAuthProvider(credentials, loginUrl);
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
     expect(provider.getAuthedClient()).toBe(mockClient);
   });
 
-  it('createCariotAuthProvider constructs with env credentials', () => {
+  it('createCariotAuthProvider constructs with env credentials (api_key)', () => {
     const prevKey = process.env.API_ACCESS_KEY;
     const prevSecret = process.env.API_ACCESS_SECRET;
+    const prevToken = process.env.ID_TOKEN;
+    delete process.env.ID_TOKEN;
     process.env.API_ACCESS_KEY = 'ek';
     process.env.API_ACCESS_SECRET = 'es';
     try {
@@ -223,6 +243,70 @@ describe('CariotApiAuthProvider', () => {
       else process.env.API_ACCESS_KEY = prevKey;
       if (prevSecret === undefined) delete process.env.API_ACCESS_SECRET;
       else process.env.API_ACCESS_SECRET = prevSecret;
+      if (prevToken === undefined) delete process.env.ID_TOKEN;
+      else process.env.ID_TOKEN = prevToken;
+    }
+  });
+
+  it('createCariotAuthProvider constructs with ID_TOKEN (id_token)', () => {
+    const prevKey = process.env.API_ACCESS_KEY;
+    const prevSecret = process.env.API_ACCESS_SECRET;
+    const prevToken = process.env.ID_TOKEN;
+    delete process.env.API_ACCESS_KEY;
+    delete process.env.API_ACCESS_SECRET;
+    process.env.ID_TOKEN = 'my-jwt';
+    try {
+      const provider = CariotApiAuthProvider.createCariotAuthProvider();
+      expect(provider).toBeInstanceOf(CariotApiAuthProvider);
+    } finally {
+      if (prevKey === undefined) delete process.env.API_ACCESS_KEY;
+      else process.env.API_ACCESS_KEY = prevKey;
+      if (prevSecret === undefined) delete process.env.API_ACCESS_SECRET;
+      else process.env.API_ACCESS_SECRET = prevSecret;
+      if (prevToken === undefined) delete process.env.ID_TOKEN;
+      else process.env.ID_TOKEN = prevToken;
+    }
+  });
+
+  it('createCariotAuthProvider prioritizes api_key over ID_TOKEN', () => {
+    const prevKey = process.env.API_ACCESS_KEY;
+    const prevSecret = process.env.API_ACCESS_SECRET;
+    const prevToken = process.env.ID_TOKEN;
+    process.env.API_ACCESS_KEY = 'ek';
+    process.env.API_ACCESS_SECRET = 'es';
+    process.env.ID_TOKEN = 'my-jwt';
+    try {
+      const provider = CariotApiAuthProvider.createCariotAuthProvider();
+      expect(provider).toBeInstanceOf(CariotApiAuthProvider);
+      expect(logger.info).toHaveBeenCalledWith('Using API key authentication');
+    } finally {
+      if (prevKey === undefined) delete process.env.API_ACCESS_KEY;
+      else process.env.API_ACCESS_KEY = prevKey;
+      if (prevSecret === undefined) delete process.env.API_ACCESS_SECRET;
+      else process.env.API_ACCESS_SECRET = prevSecret;
+      if (prevToken === undefined) delete process.env.ID_TOKEN;
+      else process.env.ID_TOKEN = prevToken;
+    }
+  });
+
+  it('createCariotAuthProvider throws when no credentials provided', () => {
+    const prevKey = process.env.API_ACCESS_KEY;
+    const prevSecret = process.env.API_ACCESS_SECRET;
+    const prevToken = process.env.ID_TOKEN;
+    delete process.env.API_ACCESS_KEY;
+    delete process.env.API_ACCESS_SECRET;
+    delete process.env.ID_TOKEN;
+    try {
+      expect(() => CariotApiAuthProvider.createCariotAuthProvider()).toThrow(
+        'Authentication credentials are required',
+      );
+    } finally {
+      if (prevKey === undefined) delete process.env.API_ACCESS_KEY;
+      else process.env.API_ACCESS_KEY = prevKey;
+      if (prevSecret === undefined) delete process.env.API_ACCESS_SECRET;
+      else process.env.API_ACCESS_SECRET = prevSecret;
+      if (prevToken === undefined) delete process.env.ID_TOKEN;
+      else process.env.ID_TOKEN = prevToken;
     }
   });
 });

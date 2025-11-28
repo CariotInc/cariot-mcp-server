@@ -10,16 +10,17 @@ import { getEnvironment } from './env.js';
 import { logger } from './logger.js';
 import { ApiAuthResponse, ApiCredentials } from './types.js';
 
+type AuthConfig =
+  | { type: 'id_token'; idToken: string; loginUrl: string }
+  | { type: 'api_key'; credentials: ApiCredentials; loginUrl: string };
+
 export class CariotApiAuthProvider {
   private token: string | null = null;
-  private tokenExpiry: number | null = null;
-  private credentials: ApiCredentials;
-  private loginUrl: string;
+  private authConfig: AuthConfig;
   private client: AxiosInstance;
 
-  constructor(credentials: ApiCredentials, loginUrl: string) {
-    this.credentials = credentials;
-    this.loginUrl = loginUrl;
+  constructor(authConfig: AuthConfig) {
+    this.authConfig = authConfig;
     this.client = axios.create({
       timeout: 15000,
       headers: {
@@ -54,7 +55,6 @@ export class CariotApiAuthProvider {
         if (axiosError.response?.status === 401 && originalConfig && !originalConfig._retry) {
           logger.warn('Received 401, attempting re-authentication');
           this.token = null;
-          this.tokenExpiry = null;
           const newToken = await this.getValidToken();
           originalConfig._retry = true;
           originalConfig.headers = {
@@ -72,45 +72,75 @@ export class CariotApiAuthProvider {
   }
 
   async getValidToken(): Promise<string> {
-    if (this.token && this.tokenExpiry && Date.now() < this.tokenExpiry) {
+    if (this.token) {
       return this.token;
     }
 
-    return await this.refreshToken();
+    return await this.fetchToken();
   }
 
-  private async refreshToken(): Promise<string> {
+  private async fetchToken(): Promise<string> {
     try {
-      logger.debug('Refreshing authentication token');
+      logger.debug('Fetching authentication token', { authType: this.authConfig.type });
 
-      const response: AxiosResponse<ApiAuthResponse> = await axios.post(
-        this.loginUrl,
-        this.credentials,
-        { headers: { 'Content-Type': 'application/json' }, timeout: 15000 },
-      );
+      let response: AxiosResponse<ApiAuthResponse>;
+
+      if (this.authConfig.type === 'id_token') {
+        // Use id token with /api/login/cariot endpoint
+        response = await axios.post(
+          this.authConfig.loginUrl,
+          {},
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.authConfig.idToken}`,
+            },
+            timeout: 15000,
+          },
+        );
+      } else {
+        // Use API key credentials with /api/login endpoint
+        response = await axios.post(this.authConfig.loginUrl, this.authConfig.credentials, {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 15000,
+        });
+      }
 
       this.token = response.data.api_token;
-      this.tokenExpiry = Date.now() + 9 * 24 * 60 * 60 * 1000;
 
-      logger.debug('Authentication token refreshed successfully');
+      logger.debug('Authentication token fetched successfully');
       return this.token;
     } catch (error) {
-      logger.error('Error refreshing token', {
+      logger.error('Error fetching token', {
         error: error instanceof Error ? error.message : String(error),
+        authType: this.authConfig.type,
       });
       throw new Error('Failed to authenticate with external API');
     }
   }
 
   static createCariotAuthProvider(): CariotApiAuthProvider {
-    const { apiAccessKey, apiAccessSecret } = getEnvironment();
-    return new CariotApiAuthProvider(
-      {
-        api_access_key: apiAccessKey,
-        api_access_secret: apiAccessSecret,
-      },
-      `${API_BASE}/login`,
-    );
+    const env = getEnvironment();
+
+    switch (env.authType) {
+      case 'api_key':
+        logger.info('Using API key authentication');
+        return new CariotApiAuthProvider({
+          type: 'api_key',
+          credentials: {
+            api_access_key: env.apiAccessKey,
+            api_access_secret: env.apiAccessSecret,
+          },
+          loginUrl: `${API_BASE}/login`,
+        });
+      case 'id_token':
+        logger.info('Using ID_TOKEN authentication');
+        return new CariotApiAuthProvider({
+          type: 'id_token',
+          idToken: env.idToken,
+          loginUrl: `${API_BASE}/login/cariot`,
+        });
+    }
   }
 
   getAuthedClient(): AxiosInstance {
