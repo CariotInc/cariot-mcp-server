@@ -7,15 +7,15 @@ A Model Context Protocol (MCP) server with cariot APIs.
 ### Prerequisites
 
 - Node.js v22+ (ES modules support)
-- Cariot API credentials (API Secret Key, API Access Secret)
+- Cariot API credentials (one of the following):
+  - API Access Key and Secret
+  - ID Token (from Cariot authentication)
 
 ### Configuration
 
-
 Add the following configuration to your MCP-enabled client (e.g., Claude Desktop) settings.
 
-
-#### Authentication Setup via Environment Variables
+#### Option 1: API Key Authentication (Recommended)
 
 ```json
 {
@@ -32,14 +32,39 @@ Add the following configuration to your MCP-enabled client (e.g., Claude Desktop
 }
 ```
 
-**Required Environment Variables:**
+#### Option 2: ID Token Authentication
 
-- **API_ACCESS_KEY**: Cariot API access key
-- **API_ACCESS_SECRET**: Cariot API access secret
+```json
+{
+  "mcpServers": {
+    "cariot": {
+      "command": "npx",
+      "args": ["@cariot-labs/cariot-mcp-server"],
+      "env": {
+        "ID_TOKEN": "your-id-token"
+      }
+    }
+  }
+}
+```
 
-**Optional Environment Variables:**
+### Environment Variables
 
-- **CARIOT_LOG_LEVEL**: Logging level (debug, info, warn, error). Default: info
+**Authentication (one of the following is required):**
+
+| Variable            | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| `API_ACCESS_KEY`    | Cariot API access key (used with `API_ACCESS_SECRET`) |
+| `API_ACCESS_SECRET` | Cariot API access secret (used with `API_ACCESS_KEY`) |
+| `ID_TOKEN`          | Cariot ID token for authentication                    |
+
+> **Note:** If both API key credentials and ID token are provided, API key authentication takes priority.
+
+**Optional:**
+
+| Variable           | Description                              | Default |
+| ------------------ | ---------------------------------------- | ------- |
+| `CARIOT_LOG_LEVEL` | Logging level (debug, info, warn, error) | info    |
 
 ### No Installation Required
 
@@ -60,15 +85,6 @@ npx automatically downloads and runs the server.
 
 - **generate_chart_config**: Generate Chart.js configuration data based on input data. Supports bar, line, pie, doughnut, radar, and polarArea chart types. This tool can be used to visualize data obtained from other tools.
 
-## Authentication
-
-This MCP server uses the following authentication flow:
-
-1. **Initial Authentication**: Login using API_ACCESS_KEY and API_ACCESS_SECRET
-2. **Token Acquisition**: Obtain api_token upon successful authentication
-3. **Auto Refresh**: Automatic re-authentication when token expires
-4. **Retry Logic**: Automatic retry on 401 errors
-
 ## Development
 
 ### Local Development
@@ -86,7 +102,9 @@ npm test
 npm run build
 ```
 
-### Configuration
+### Local Configuration
+
+**Using API Key:**
 
 ```json
 {
