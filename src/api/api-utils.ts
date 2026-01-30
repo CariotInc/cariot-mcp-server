@@ -1,6 +1,6 @@
 import { AxiosInstance } from 'axios';
 
-export const API_BASE = 'https://api.cariot.jp/api';
+export const API_BASE = process.env.CARIOT_API_BASE_URL || 'https://api.cariot.jp/api';
 
 export async function get<T>(client: AxiosInstance, url: string, params?: unknown): Promise<T> {
   const response = await client.get<T>(url, { params });
