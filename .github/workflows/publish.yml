@@ -3,6 +3,14 @@ name: Publish to NPM
 on:
   workflow_dispatch:
     inputs:
+      version-type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
       dry-run:
         description: 'Dry run (skip actual publish)'
         required: false
@@ -10,7 +18,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -39,6 +47,15 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Bump version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version ${{ inputs.version-type }}
+
+      - name: Push version commit
+        run: git push
 
       - name: Build
         run: npm run build
