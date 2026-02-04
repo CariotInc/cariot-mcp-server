@@ -73,12 +73,12 @@ export const dailyReportsTool = {
       limit: z
         .number()
         .min(1)
-        .max(100)
+        .max(500)
         .optional()
         .describe(
           formatEnJaWithSlash(
-            'Number of results to retrieve (default: 20, max: 100)',
-            '取得件数 (デフォルト:20, 最大:100)',
+            'Number of results to retrieve (default: 100, max: 500)',
+            '取得件数 (デフォルト:100, 最大:500)',
           ),
         ),
     },
