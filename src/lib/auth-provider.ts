@@ -84,7 +84,7 @@ export class AuthenticatedFetchClient extends FetchClient {
     data?: unknown,
     config?: FetchRequestConfig,
   ): Promise<FetchResponse<T>> {
-    return this.executeWithAuth<T>('POST', url, data, config);
+    return this.executeWithAuth<T>('POST', url, data, config ?? {});
   }
 }
 
