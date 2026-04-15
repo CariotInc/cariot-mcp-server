@@ -110,11 +110,11 @@ export class CariotApiAuthProvider {
   }
 
   private async fetchToken(): Promise<string> {
+    const controller = new AbortController();
+    const timeoutId = globalThis.setTimeout(() => controller.abort(), 15000);
+
     try {
       logger.debug('Fetching authentication token', { authType: this.authConfig.type });
-
-      const controller = new AbortController();
-      const timeoutId = globalThis.setTimeout(() => controller.abort(), 15000);
 
       let response: Response;
 
@@ -138,8 +138,6 @@ export class CariotApiAuthProvider {
           signal: controller.signal,
         });
       }
-
-      globalThis.clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => 'Unable to read response body');
@@ -166,6 +164,8 @@ export class CariotApiAuthProvider {
         authType: this.authConfig.type,
       });
       throw new Error(`Failed to authenticate with external API: ${errorMessage}`);
+    } finally {
+      globalThis.clearTimeout(timeoutId);
     }
   }
 
