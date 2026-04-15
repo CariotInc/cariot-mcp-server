@@ -49,10 +49,10 @@ export class FetchClient {
   }
 
   private buildUrl(url: string, params?: unknown): string {
-    if (!params) return url;
+    if (!params || typeof params !== 'object' || Array.isArray(params)) return url;
 
     const searchParams = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
+    for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
       if (value !== undefined && value !== null) {
         searchParams.append(key, String(value));
       }
