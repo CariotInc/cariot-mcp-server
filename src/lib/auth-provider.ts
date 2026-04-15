@@ -163,7 +163,7 @@ export class CariotApiAuthProvider {
         error: errorMessage,
         authType: this.authConfig.type,
       });
-      throw new Error(`Failed to authenticate with external API: ${errorMessage}`);
+      throw new Error('Failed to authenticate with external API');
     } finally {
       globalThis.clearTimeout(timeoutId);
     }
