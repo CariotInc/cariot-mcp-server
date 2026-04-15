@@ -141,11 +141,13 @@ export class CariotApiAuthProvider {
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => 'Unable to read response body');
+        // Truncate body to avoid leaking sensitive data in logs
+        const truncatedBody =
+          errorBody.length > 100 ? `${errorBody.substring(0, 100)}...[truncated]` : errorBody;
         logger.error('Authentication failed', {
           status: response.status,
           statusText: response.statusText,
-          body: errorBody,
-          loginUrl: this.authConfig.loginUrl,
+          body: truncatedBody,
         });
         throw new Error(
           `Authentication request failed with status ${response.status}: ${errorBody}`,
