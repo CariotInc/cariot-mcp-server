@@ -146,7 +146,7 @@ export class FetchClient {
   }
 
   async get<T>(url: string, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
-    return this.request<T>('GET', url, undefined, config);
+    return this.request<T>('GET', url, undefined, config ?? {});
   }
 
   async post<T>(
