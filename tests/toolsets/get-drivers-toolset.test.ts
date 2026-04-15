@@ -1,9 +1,9 @@
-import { AxiosInstance } from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CariotApiAuthProvider } from '../../src/lib/auth-provider.js';
+import { FetchClient } from '../../src/lib/http-client.js';
 import { formatConfig } from '../../src/toolsets/base-toolset.js';
 import { driversTool } from '../../src/toolsets/get-drivers-toolset.js';
-import { createMockAuthProvider, createMockAxiosClient } from '../helpers/mock-factories.js';
+import { createMockAuthProvider, createMockFetchClient } from '../helpers/mock-factories.js';
 
 vi.mock('../../src/api/get-drivers.js', () => ({
   getDrivers: vi.fn(),
@@ -19,11 +19,11 @@ describe('GetDriversToolset', () => {
     handler: ReturnType<typeof driversTool.handler>;
   };
   let mockAuthProvider: CariotApiAuthProvider;
-  let mockClient: AxiosInstance;
+  let mockClient: FetchClient;
 
   beforeEach(() => {
     mockAuthProvider = createMockAuthProvider();
-    mockClient = createMockAxiosClient();
+    mockClient = createMockFetchClient();
     registration = {
       name: driversTool.name,
       config: formatConfig(driversTool.config),

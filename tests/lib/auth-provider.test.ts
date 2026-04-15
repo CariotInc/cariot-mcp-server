@@ -1,6 +1,6 @@
-import axios, { AxiosHeaders, AxiosInstance, AxiosRequestConfig } from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CariotApiAuthProvider } from '../../src/lib/auth-provider.js';
+import { AuthenticatedFetchClient, CariotApiAuthProvider } from '../../src/lib/auth-provider.js';
+import { FetchClientError } from '../../src/lib/http-client.js';
 import { logger } from '../../src/lib/logger.js';
 
 vi.mock('../../src/lib/logger.js', () => ({
@@ -26,181 +26,148 @@ describe('CariotApiAuthProvider', () => {
     loginUrl: 'https://example.com/login/cariot',
   };
 
-  interface InterceptableAxiosInstance extends AxiosInstance {
-    __requestInterceptor?: (
-      config: AxiosRequestConfig,
-    ) => Promise<AxiosRequestConfig> | AxiosRequestConfig;
-    __responseErrorInterceptor?: (error: unknown) => Promise<unknown>;
-  }
-
-  let mockClient: InterceptableAxiosInstance;
+  let mockFetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
 
-    mockClient = {
-      get: vi.fn(),
-      post: vi.fn(),
-      request: vi.fn(),
-      interceptors: {
-        request: {
-          use: vi.fn(
-            (fn: (cfg: AxiosRequestConfig) => Promise<AxiosRequestConfig> | AxiosRequestConfig) => {
-              mockClient.__requestInterceptor = fn;
-            },
-          ),
-        },
-        response: {
-          use: vi.fn((onFulfilled: unknown, onRejected?: (error: unknown) => unknown) => {
-            if (onRejected) {
-              mockClient.__responseErrorInterceptor = async (error: unknown) => onRejected(error);
-            }
-          }),
-        },
-      },
-    } as unknown as InterceptableAxiosInstance;
-
-    vi.spyOn(axios, 'create').mockReturnValue(mockClient);
-    vi.spyOn(axios, 'post').mockResolvedValue({ data: { api_token: 'token-1' } });
+    mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
   });
 
+  const createMockResponse = (data: unknown, status = 200): Response => {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: vi.fn().mockResolvedValue(data),
+      text: vi.fn().mockResolvedValue(JSON.stringify(data)),
+    } as unknown as Response;
+  };
+
   it('fetches token when none exists and caches it (api_key)', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'token-1' }));
+
     const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
     const token1 = await provider.getValidToken();
     expect(token1).toBe('token-1');
-    expect(axios.post).toHaveBeenCalledTimes(1);
-    expect(axios.post).toHaveBeenCalledWith(
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
       loginUrl,
-      credentials,
-      expect.objectContaining({ headers: { 'Content-Type': 'application/json' }, timeout: 15000 }),
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      }),
     );
 
-    vi.mocked(axios.post).mockClear();
+    mockFetch.mockClear();
     const token2 = await provider.getValidToken();
     expect(token2).toBe('token-1');
-    expect(axios.post).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('fetches token when none exists and caches it (id_token)', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'token-1' }));
+
     const provider = new CariotApiAuthProvider(idTokenAuthConfig);
     const token1 = await provider.getValidToken();
     expect(token1).toBe('token-1');
-    expect(axios.post).toHaveBeenCalledTimes(1);
-    expect(axios.post).toHaveBeenCalledWith(
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
       idTokenAuthConfig.loginUrl,
-      {},
       expect.objectContaining({
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${idTokenAuthConfig.idToken}`,
         },
-        timeout: 15000,
+        body: JSON.stringify({}),
       }),
     );
 
-    vi.mocked(axios.post).mockClear();
+    mockFetch.mockClear();
     const token2 = await provider.getValidToken();
     expect(token2).toBe('token-1');
-    expect(axios.post).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('request interceptor sets x-auth-token and content-type', async () => {
+  it('client sets x-auth-token header on requests', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'header-token' }));
+    mockFetch.mockResolvedValueOnce(createMockResponse({ data: 'test' }));
+
     const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
+    const client = provider.getAuthedClient();
 
-    vi.mocked(axios.post).mockResolvedValueOnce({ data: { api_token: 'header-token' } });
+    await client.get('https://api.example.com/test');
 
-    const interceptor = mockClient.__requestInterceptor!;
-    expect(interceptor).toBeTypeOf('function');
-
-    const cfg: AxiosRequestConfig = { url: '/foo', method: 'get', headers: {} };
-    const result = await interceptor(cfg);
-
-    expect(result.headers instanceof AxiosHeaders).toBe(true);
-    const headers = result.headers as AxiosHeaders;
-    expect(headers.get('x-auth-token')).toBe('header-token');
-    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // Second call should be the GET request with auth header
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      'https://api.example.com/test',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          'x-auth-token': 'header-token',
+          'Content-Type': 'application/json',
+        }),
+      }),
+    );
   });
 
-  it('request interceptor preserves AxiosHeaders instance', async () => {
+  it('client retries once on 401 with fresh token', async () => {
+    // First call: fetch token
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'first-token' }));
+    // Second call: API request that returns 401
+    mockFetch.mockResolvedValueOnce(createMockResponse({ error: 'unauthorized' }, 401));
+    // Third call: fetch new token after 401
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'retry-token' }));
+    // Fourth call: retry API request with new token
+    mockFetch.mockResolvedValueOnce(createMockResponse({ data: 'success' }));
+
     const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
+    const client = provider.getAuthedClient();
 
-    vi.mocked(axios.post).mockResolvedValueOnce({ data: { api_token: 'hdr2' } });
+    const response = await client.get('https://api.example.com/secure');
 
-    const interceptor = mockClient.__requestInterceptor!;
-    const initialHeaders = new AxiosHeaders({ 'Content-Type': 'text/plain' });
-    const cfg: AxiosRequestConfig = { url: '/bar', method: 'get', headers: initialHeaders };
-    const result = await interceptor(cfg);
+    expect(response.data).toEqual({ data: 'success' });
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+    expect(logger.warn).toHaveBeenCalledWith('Received 401, attempting re-authentication');
 
-    expect(result.headers).toBe(initialHeaders);
-    expect((result.headers as AxiosHeaders).get('x-auth-token')).toBe('hdr2');
-    expect((result.headers as AxiosHeaders).get('Content-Type')).toBe('application/json');
+    // Verify the retry request has the new token
+    const lastCall = mockFetch.mock.calls[3];
+    expect(lastCall[1].headers['x-auth-token']).toBe('retry-token');
   });
 
-  it('response interceptor retries once on 401 with fresh token', async () => {
+  it('client rejects on non-401 without retry', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'token' }));
+    mockFetch.mockResolvedValueOnce(createMockResponse({ error: 'server error' }, 500));
+
     const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
+    const client = provider.getAuthedClient();
 
-    vi.mocked(axios.post).mockResolvedValueOnce({ data: { api_token: 'retry-token' } });
-
-    const retriedResponse = { data: { ok: true } };
-    vi.mocked(mockClient.request).mockResolvedValue(retriedResponse);
-
-    const errorHandler = mockClient.__responseErrorInterceptor!;
-    expect(errorHandler).toBeTypeOf('function');
-
-    const originalConfig: AxiosRequestConfig & { _retry?: boolean } = {
-      url: '/secure',
-      method: 'get',
-      headers: {},
-    };
-
-    const axiosLikeError = {
-      response: { status: 401 },
-      config: originalConfig,
-      message: 'Unauthorized',
-    } as const;
-
-    const out = await errorHandler(axiosLikeError);
-    expect(out).toBe(retriedResponse);
-
-    expect(mockClient.request).toHaveBeenCalledTimes(1);
-    const calledWith = vi.mocked(mockClient.request).mock.calls[0][0] as AxiosRequestConfig & {
-      _retry?: boolean;
-    };
-    expect(calledWith._retry).toBe(true);
-    expect(calledWith.headers).toBeTruthy();
-    const hdrs = calledWith.headers as AxiosHeaders | Record<string, unknown>;
-    expect(hdrs['x-auth-token']).toBe('retry-token');
+    await expect(client.get('https://api.example.com/broken')).rejects.toThrow(FetchClientError);
+    expect(mockFetch).toHaveBeenCalledTimes(2); // token fetch + failed request, no retry
   });
 
-  it('response interceptor rejects on non-401 without retry', async () => {
-    new CariotApiAuthProvider(apiKeyAuthConfig);
-    const errorHandler = mockClient.__responseErrorInterceptor!;
+  it('client does not retry when _retry flag is already set', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'first-token' }));
+    mockFetch.mockResolvedValueOnce(createMockResponse({ error: 'unauthorized' }, 401));
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'retry-token' }));
+    // Simulate the retry also failing with 401
+    mockFetch.mockResolvedValueOnce(createMockResponse({ error: 'still unauthorized' }, 401));
 
-    const axiosLikeError = { response: { status: 500 }, message: 'Server error' } as const;
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
+    const client = provider.getAuthedClient();
 
-    await expect(errorHandler(axiosLikeError)).rejects.toBe(axiosLikeError);
-    expect(mockClient.request).not.toHaveBeenCalled();
-  });
-
-  it('response interceptor rejects when _retry already true', async () => {
-    new CariotApiAuthProvider(apiKeyAuthConfig);
-    const errorHandler = mockClient.__responseErrorInterceptor!;
-
-    const originalConfig: AxiosRequestConfig & { _retry?: boolean } = {
-      url: '/secure',
-      method: 'get',
-      headers: {},
-      _retry: true,
-    };
-    const axiosLikeError = { response: { status: 401 }, config: originalConfig } as const;
-
-    await expect(errorHandler(axiosLikeError)).rejects.toBe(axiosLikeError);
-    expect(mockClient.request).not.toHaveBeenCalled();
+    await expect(client.get('https://api.example.com/secure')).rejects.toThrow(FetchClientError);
+    // Should not attempt a second retry
+    expect(mockFetch).toHaveBeenCalledTimes(4);
   });
 
   it('fetchToken failure bubbles a unified error', async () => {
-    vi.mocked(axios.post).mockRejectedValueOnce(new Error('network down'));
+    mockFetch.mockRejectedValueOnce(new Error('network down'));
     const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
     await expect(provider.getValidToken()).rejects.toThrow(
       'Failed to authenticate with external API',
@@ -212,7 +179,7 @@ describe('CariotApiAuthProvider', () => {
   });
 
   it('logs stringified non-Error when fetchToken fails with non-Error', async () => {
-    vi.mocked(axios.post).mockRejectedValueOnce('string issue');
+    mockFetch.mockRejectedValueOnce('string issue');
     const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
     await expect(provider.getValidToken()).rejects.toThrow(
       'Failed to authenticate with external API',
@@ -223,9 +190,35 @@ describe('CariotApiAuthProvider', () => {
     });
   });
 
-  it('getAuthedClient returns the created axios instance', () => {
+  it('fetchToken fails when response is not ok', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse({ error: 'bad credentials' }, 401));
     const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
-    expect(provider.getAuthedClient()).toBe(mockClient);
+    await expect(provider.getValidToken()).rejects.toThrow(
+      'Failed to authenticate with external API',
+    );
+  });
+
+  it('getAuthedClient returns an AuthenticatedFetchClient instance', () => {
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
+    const client = provider.getAuthedClient();
+    expect(client).toBeInstanceOf(AuthenticatedFetchClient);
+    // Same instance should be returned on subsequent calls
+    expect(provider.getAuthedClient()).toBe(client);
+  });
+
+  it('clearToken clears the cached token', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'token-1' }));
+    mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'token-2' }));
+
+    const provider = new CariotApiAuthProvider(apiKeyAuthConfig);
+    const token1 = await provider.getValidToken();
+    expect(token1).toBe('token-1');
+
+    provider.clearToken();
+
+    const token2 = await provider.getValidToken();
+    expect(token2).toBe('token-2');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   it('createCariotAuthProvider constructs with env credentials (api_key)', () => {
