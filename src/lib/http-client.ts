@@ -90,12 +90,27 @@ export class FetchClient {
 
     try {
       const response = await fetch(requestUrl, fetchOptions);
-      globalThis.clearTimeout(timeoutId);
 
       let responseData: T;
       const contentType = response.headers.get('content-type');
       if (contentType?.includes('application/json')) {
-        responseData = (await response.json()) as T;
+        try {
+          responseData = (await response.json()) as T;
+        } catch {
+          // JSON parse failed, fallback to text and preserve status info
+          const textBody = await response.text().catch(() => '');
+          const fetchResponse: FetchResponse<unknown> = {
+            data: textBody,
+            status: response.status,
+            headers: response.headers,
+          };
+          throw new FetchClientError(
+            `Failed to parse JSON response (status ${response.status})`,
+            response.status,
+            fetchResponse,
+            { ...config, url, method },
+          );
+        }
       } else {
         responseData = (await response.text()) as unknown as T;
       }
@@ -117,8 +132,6 @@ export class FetchClient {
 
       return fetchResponse;
     } catch (error) {
-      globalThis.clearTimeout(timeoutId);
-
       if (error instanceof FetchClientError) {
         throw error;
       }
@@ -142,6 +155,8 @@ export class FetchClient {
         undefined,
         { ...config, url, method },
       );
+    } finally {
+      globalThis.clearTimeout(timeoutId);
     }
   }
 
