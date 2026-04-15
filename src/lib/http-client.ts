@@ -9,7 +9,7 @@ export interface FetchClientConfig {
 }
 
 export interface FetchRequestConfig {
-  params?: Record<string, unknown>;
+  params?: unknown;
   headers?: Record<string, string>;
   _retry?: boolean;
 }
@@ -48,7 +48,7 @@ export class FetchClient {
     this.baseHeaders = config.headers ?? {};
   }
 
-  private buildUrl(url: string, params?: Record<string, unknown>): string {
+  private buildUrl(url: string, params?: unknown): string {
     if (!params) return url;
 
     const searchParams = new URLSearchParams();

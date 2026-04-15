@@ -1,10 +1,9 @@
-import { FetchClient, FetchRequestConfig } from '../lib/http-client.js';
+import { FetchClient } from '../lib/http-client.js';
 
 export const API_BASE = process.env.CARIOT_API_BASE_URL || 'https://api.cariot.jp/api';
 
 export async function get<T>(client: FetchClient, url: string, params?: unknown): Promise<T> {
-  const config: FetchRequestConfig = params ? { params: params as Record<string, unknown> } : {};
-  const response = await client.get<T>(url, config);
+  const response = await client.get<T>(url, { params });
   return response.data;
 }
 
