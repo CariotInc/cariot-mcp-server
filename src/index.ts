@@ -10,10 +10,6 @@ const authProvider = CariotApiAuthProvider.createCariotAuthProvider();
 const server = new McpServer({
   name: 'cariot',
   version: '1.0.0',
-  capabilities: {
-    resources: {},
-    tools: {},
-  },
 });
 
 registerAllTools(server, authProvider);
