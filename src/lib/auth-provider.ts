@@ -149,9 +149,8 @@ export class CariotApiAuthProvider {
           statusText: response.statusText,
           body: truncatedBody,
         });
-        throw new Error(
-          `Authentication request failed with status ${response.status}: ${errorBody}`,
-        );
+        // Throw sanitized error to prevent sensitive data from being logged again in catch block
+        throw new Error(`Authentication request failed with status ${response.status}`);
       }
 
       const data = (await response.json()) as ApiAuthResponse;
