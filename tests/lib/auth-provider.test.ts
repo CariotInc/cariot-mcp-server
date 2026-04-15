@@ -36,6 +36,10 @@ describe('CariotApiAuthProvider', () => {
     vi.stubGlobal('fetch', mockFetch);
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   const createMockResponse = (data: unknown, status = 200): Response => {
     return {
       ok: status >= 200 && status < 300,
