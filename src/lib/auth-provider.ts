@@ -61,10 +61,17 @@ export class AuthenticatedFetchClient extends FetchClient {
           'Content-Type': 'application/json',
         };
 
-        if (method === 'GET') {
-          return await super.get<T>(url, { ...config, headers: retryHeaders, _retry: true });
-        } else {
-          return await super.post<T>(url, data, { ...config, headers: retryHeaders, _retry: true });
+        try {
+          if (method === 'GET') {
+            return await super.get<T>(url, { ...config, headers: retryHeaders, _retry: true });
+          } else {
+            return await super.post<T>(url, data, { ...config, headers: retryHeaders, _retry: true });
+          }
+        } catch (retryError) {
+          logger.error('API request failed after retry', {
+            error: retryError instanceof Error ? retryError.message : String(retryError),
+          });
+          throw retryError;
         }
       }
 
