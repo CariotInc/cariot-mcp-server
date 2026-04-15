@@ -14,8 +14,6 @@ export function createMockFetchClient(): FetchClient {
   return {
     get: vi.fn(),
     post: vi.fn(),
-    setHeader: vi.fn(),
-    getHeaders: vi.fn().mockReturnValue({}),
   } as unknown as FetchClient;
 }
 

@@ -156,12 +156,4 @@ export class FetchClient {
   ): Promise<FetchResponse<T>> {
     return this.request<T>('POST', url, data, config);
   }
-
-  setHeader(key: string, value: string): void {
-    this.baseHeaders[key] = value;
-  }
-
-  getHeaders(): Record<string, string> {
-    return { ...this.baseHeaders };
-  }
 }
