@@ -154,6 +154,6 @@ export class FetchClient {
     data?: unknown,
     config?: FetchRequestConfig,
   ): Promise<FetchResponse<T>> {
-    return this.request<T>('POST', url, data, config);
+    return this.request<T>('POST', url, data, config ?? {});
   }
 }
