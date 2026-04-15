@@ -155,7 +155,7 @@ describe('CariotApiAuthProvider', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2); // token fetch + failed request, no retry
   });
 
-  it('client does not retry when _retry flag is already set', async () => {
+  it('client retries at most once when retry also returns 401', async () => {
     mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'first-token' }));
     mockFetch.mockResolvedValueOnce(createMockResponse({ error: 'unauthorized' }, 401));
     mockFetch.mockResolvedValueOnce(createMockResponse({ api_token: 'retry-token' }));
@@ -166,7 +166,7 @@ describe('CariotApiAuthProvider', () => {
     const client = provider.getAuthedClient();
 
     await expect(client.get('https://api.example.com/secure')).rejects.toThrow(FetchClientError);
-    // Should not attempt a second retry
+    // token fetch + 401 + token refresh + retry 401 = 4 calls, no second retry
     expect(mockFetch).toHaveBeenCalledTimes(4);
   });
 
