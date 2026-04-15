@@ -1,6 +1,12 @@
 import { API_BASE } from '../api/api-utils.js';
 import { getEnvironment } from './env.js';
-import { FetchClient, FetchClientError, FetchRequestConfig, FetchResponse } from './http-client.js';
+import {
+  DEFAULT_TIMEOUT_MS,
+  FetchClient,
+  FetchClientError,
+  FetchRequestConfig,
+  FetchResponse,
+} from './http-client.js';
 import { logger } from './logger.js';
 import { ApiAuthResponse, ApiCredentials } from './types.js';
 
@@ -16,7 +22,7 @@ export class AuthenticatedFetchClient extends FetchClient {
 
   constructor(authProvider: CariotApiAuthProvider) {
     super({
-      timeout: 15000,
+      timeout: DEFAULT_TIMEOUT_MS,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -117,7 +123,7 @@ export class CariotApiAuthProvider {
 
   private async fetchToken(): Promise<string> {
     const controller = new AbortController();
-    const timeoutId = globalThis.setTimeout(() => controller.abort(), 15000);
+    const timeoutId = globalThis.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
     try {
       logger.debug('Fetching authentication token', { authType: this.authConfig.type });

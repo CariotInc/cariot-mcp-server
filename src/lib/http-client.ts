@@ -3,6 +3,9 @@
  * Replaces axios for reduced dependencies and supply chain attack risk
  */
 
+/** Default timeout for HTTP requests in milliseconds */
+export const DEFAULT_TIMEOUT_MS = 15000;
+
 export interface FetchClientConfig {
   timeout?: number;
   headers?: Record<string, string>;
@@ -44,7 +47,7 @@ export class FetchClient {
   private timeout: number;
 
   constructor(config: FetchClientConfig = {}) {
-    this.timeout = config.timeout ?? 15000;
+    this.timeout = config.timeout ?? DEFAULT_TIMEOUT_MS;
     this.baseHeaders = config.headers ?? {};
   }
 
