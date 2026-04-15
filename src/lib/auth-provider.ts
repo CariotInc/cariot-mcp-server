@@ -40,7 +40,6 @@ export class AuthenticatedFetchClient extends FetchClient {
     logger.info('HTTP request', {
       url,
       method,
-      params: config.params,
     });
 
     try {
