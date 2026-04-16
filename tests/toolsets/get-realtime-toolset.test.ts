@@ -1,9 +1,9 @@
-import { AxiosInstance } from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CariotApiAuthProvider } from '../../src/lib/auth-provider.js';
+import { FetchClient } from '../../src/lib/http-client.js';
 import { formatConfig } from '../../src/toolsets/base-toolset.js';
 import { realtimeTool } from '../../src/toolsets/get-realtime-toolset.js';
-import { createMockAuthProvider, createMockAxiosClient } from '../helpers/mock-factories.js';
+import { createMockAuthProvider, createMockFetchClient } from '../helpers/mock-factories.js';
 
 vi.mock('../../src/api/get-device-snapshots.js', () => ({
   getDeviceSnapshots: vi.fn(),
@@ -18,11 +18,11 @@ describe('GetRealtimeToolset', () => {
     handler: ReturnType<typeof realtimeTool.handler>;
   };
   let mockAuthProvider: CariotApiAuthProvider;
-  let mockClient: AxiosInstance;
+  let mockClient: FetchClient;
 
   beforeEach(() => {
     mockAuthProvider = createMockAuthProvider();
-    mockClient = createMockAxiosClient();
+    mockClient = createMockFetchClient();
     registration = {
       name: realtimeTool.name,
       config: formatConfig(realtimeTool.config),

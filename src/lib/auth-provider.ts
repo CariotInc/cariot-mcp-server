@@ -1,12 +1,12 @@
-import axios, {
-  AxiosError,
-  AxiosHeaders,
-  AxiosInstance,
-  AxiosRequestConfig,
-  AxiosResponse,
-} from 'axios';
 import { API_BASE } from '../api/api-utils.js';
 import { getEnvironment } from './env.js';
+import {
+  DEFAULT_TIMEOUT_MS,
+  FetchClient,
+  FetchClientError,
+  FetchRequestConfig,
+  FetchResponse,
+} from './http-client.js';
 import { logger } from './logger.js';
 import { ApiAuthResponse, ApiCredentials } from './types.js';
 
@@ -14,61 +14,99 @@ type AuthConfig =
   | { type: 'id_token'; idToken: string; loginUrl: string }
   | { type: 'api_key'; credentials: ApiCredentials; loginUrl: string };
 
-export class CariotApiAuthProvider {
-  private token: string | null = null;
-  private authConfig: AuthConfig;
-  private client: AxiosInstance;
+/**
+ * Authenticated HTTP client that wraps FetchClient with token management
+ */
+export class AuthenticatedFetchClient extends FetchClient {
+  private authProvider: CariotApiAuthProvider;
 
-  constructor(authConfig: AuthConfig) {
-    this.authConfig = authConfig;
-    this.client = axios.create({
-      timeout: 15000,
+  constructor(authProvider: CariotApiAuthProvider) {
+    super({
+      timeout: DEFAULT_TIMEOUT_MS,
       headers: {
         'Content-Type': 'application/json',
       },
     });
+    this.authProvider = authProvider;
+  }
 
-    this.client.interceptors.request.use(async (config) => {
-      const token = await this.getValidToken();
-      let headersObj: AxiosHeaders;
-      if (config.headers instanceof AxiosHeaders) {
-        headersObj = config.headers;
-      } else {
-        headersObj = new AxiosHeaders(config.headers as Record<string, string | number | boolean>);
-      }
-      headersObj.set('x-auth-token', token);
-      headersObj.set('Content-Type', 'application/json');
-      config.headers = headersObj;
-      logger.info('HTTP request', {
-        url: config.url,
-        method: config.method,
-        params: config.params,
-      });
-      return config;
+  private async executeWithAuth<T>(
+    method: 'GET' | 'POST',
+    url: string,
+    data?: unknown,
+    config: FetchRequestConfig = {},
+  ): Promise<FetchResponse<T>> {
+    const token = await this.authProvider.getValidToken();
+    const headers = {
+      ...config.headers,
+      'x-auth-token': token,
+      'Content-Type': 'application/json',
+    };
+
+    logger.info('HTTP request', {
+      url,
+      method,
     });
 
-    this.client.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        const axiosError = error as AxiosError;
-        const originalConfig = axiosError.config as AxiosRequestConfig & { _retry?: boolean };
-        if (axiosError.response?.status === 401 && originalConfig && !originalConfig._retry) {
-          logger.warn('Received 401, attempting re-authentication');
-          this.token = null;
-          const newToken = await this.getValidToken();
-          originalConfig._retry = true;
-          originalConfig.headers = {
-            ...(originalConfig.headers ?? {}),
-            'x-auth-token': newToken,
-          };
-          return this.client.request(originalConfig);
+    try {
+      if (method === 'GET') {
+        return await super.get<T>(url, { ...config, headers });
+      } else {
+        return await super.post<T>(url, data, { ...config, headers });
+      }
+    } catch (error) {
+      if (error instanceof FetchClientError && error.status === 401 && !config._retry) {
+        logger.warn('Received 401, attempting re-authentication');
+        this.authProvider.clearToken();
+        const newToken = await this.authProvider.getValidToken();
+
+        const retryHeaders = {
+          ...config.headers,
+          'x-auth-token': newToken,
+          'Content-Type': 'application/json',
+        };
+
+        try {
+          if (method === 'GET') {
+            return await super.get<T>(url, { ...config, headers: retryHeaders, _retry: true });
+          } else {
+            return await super.post<T>(url, data, { ...config, headers: retryHeaders, _retry: true });
+          }
+        } catch (retryError) {
+          logger.error('API request failed after retry', {
+            error: retryError instanceof Error ? retryError.message : String(retryError),
+          });
+          throw retryError;
         }
-        logger.error('API request failed', {
-          error: axiosError.message,
-        });
-        return Promise.reject(axiosError);
-      },
-    );
+      }
+
+      logger.error('API request failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async get<T>(url: string, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
+    return this.executeWithAuth<T>('GET', url, undefined, config ?? {});
+  }
+
+  async post<T>(
+    url: string,
+    data?: unknown,
+    config?: FetchRequestConfig,
+  ): Promise<FetchResponse<T>> {
+    return this.executeWithAuth<T>('POST', url, data, config ?? {});
+  }
+}
+
+export class CariotApiAuthProvider {
+  private token: string | null = null;
+  private authConfig: AuthConfig;
+  private client: AuthenticatedFetchClient | null = null;
+
+  constructor(authConfig: AuthConfig) {
+    this.authConfig = authConfig;
   }
 
   async getValidToken(): Promise<string> {
@@ -79,43 +117,68 @@ export class CariotApiAuthProvider {
     return await this.fetchToken();
   }
 
+  clearToken(): void {
+    this.token = null;
+  }
+
   private async fetchToken(): Promise<string> {
+    const controller = new AbortController();
+    const timeoutId = globalThis.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
     try {
       logger.debug('Fetching authentication token', { authType: this.authConfig.type });
 
-      let response: AxiosResponse<ApiAuthResponse>;
+      let response: Response;
 
       if (this.authConfig.type === 'id_token') {
-        // Use id token with /api/login/cariot endpoint
-        response = await axios.post(
-          this.authConfig.loginUrl,
-          {},
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.authConfig.idToken}`,
-            },
-            timeout: 15000,
+        response = await fetch(this.authConfig.loginUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.authConfig.idToken}`,
           },
-        );
+          body: JSON.stringify({}),
+          signal: controller.signal,
+        });
       } else {
-        // Use API key credentials with /api/login endpoint
-        response = await axios.post(this.authConfig.loginUrl, this.authConfig.credentials, {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 15000,
+        response = await fetch(this.authConfig.loginUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(this.authConfig.credentials),
+          signal: controller.signal,
         });
       }
 
-      this.token = response.data.api_token;
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => 'Unable to read response body');
+        // Truncate body to avoid leaking sensitive data in logs
+        const truncatedBody =
+          errorBody.length > 100 ? `${errorBody.substring(0, 100)}...[truncated]` : errorBody;
+        logger.error('Authentication failed', {
+          status: response.status,
+          statusText: response.statusText,
+          body: truncatedBody,
+        });
+        // Throw sanitized error to prevent sensitive data from being logged again in catch block
+        throw new Error(`Authentication request failed with status ${response.status}`);
+      }
+
+      const data = (await response.json()) as ApiAuthResponse;
+      this.token = data.api_token;
 
       logger.debug('Authentication token fetched successfully');
       return this.token;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('Error fetching token', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         authType: this.authConfig.type,
       });
       throw new Error('Failed to authenticate with external API');
+    } finally {
+      globalThis.clearTimeout(timeoutId);
     }
   }
 
@@ -143,7 +206,10 @@ export class CariotApiAuthProvider {
     }
   }
 
-  getAuthedClient(): AxiosInstance {
+  getAuthedClient(): FetchClient {
+    if (!this.client) {
+      this.client = new AuthenticatedFetchClient(this);
+    }
     return this.client;
   }
 }
