@@ -2,7 +2,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { CariotApiAuthProvider } from '../lib/auth-provider.js';
 import { formatConfig } from './base-toolset.js';
 import { analyzeAlcoholChecksTool } from './analyze-alcohol-checks-toolset.js';
-import { generateChartConfigTool } from './generate-chart-config-toolset.js';
 import { dailyReportTool } from './get-daily-report-toolset.js';
 import { dailyReportsTool } from './get-daily-reports-toolset.js';
 import { driversTool } from './get-drivers-toolset.js';
@@ -11,7 +10,6 @@ import { vehiclesTool } from './get-vehicles-toolset.js';
 
 const allTools = [
   analyzeAlcoholChecksTool,
-  generateChartConfigTool,
   dailyReportTool,
   dailyReportsTool,
   driversTool,
