@@ -23,6 +23,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "format": "prettier --write .",
