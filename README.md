@@ -81,10 +81,6 @@ npx automatically downloads and runs the server.
 - **get_vehicles**: List vehicles.
 - **get_realtime**: Get realtime snapshots for devices.
 
-### Utility Tools
-
-- **generate_chart_config**: Generate Chart.js configuration data based on input data. Supports bar, line, pie, doughnut, radar, and polarArea chart types. This tool can be used to visualize data obtained from other tools.
-
 ## Development
 
 ### Local Development

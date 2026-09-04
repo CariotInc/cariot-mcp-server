@@ -53,8 +53,5 @@ jobs:
       - name: Push version commit
         run: git push
 
-      - name: Build
-        run: npm run build
-
       - name: Publish to npm
         run: npm publish
